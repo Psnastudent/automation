@@ -1,0 +1,23 @@
+# Python environment and cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Logs and History
+logs/
+history.json
+
+# Ignore the Android App folder (It's huge and Render.com doesn't need it)
+android-app/
+
+# IDE files
+.vscode/
+.idea/
+
+# IMPORTANT: Should we ignore config.json?
+# config.json
+# Note: config.json is NOT ignored right now because Render.com needs it to run your bot.
+# Because of this, you MUST ensure your GitHub repository is set to PRIVATE!

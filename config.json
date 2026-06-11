@@ -1,0 +1,26 @@
+{
+  "leetcode": {
+    "username": "santhosh5670000",
+    "password": "santhosh567",
+    "session_cookie": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfYXV0aF91c2VyX2lkIjoiMTk0NzA3NjQiLCJfYXV0aF91c2VyX2JhY2tlbmQiOiJhbGxhdXRoLmFjY291bnQuYXV0aF9iYWNrZW5kcy5BdXRoZW50aWNhdGlvbkJhY2tlbmQiLCJfYXV0aF91c2VyX2hhc2giOiJlNTJmZjE3Zjk1Y2M5YjA0NDIwOWQzNDY1ZGFlY2U5Y2Y4ZTYwMDlhYjFkNjllY2Q3NjBlNTA4MTQ0ODBkZjgxIiwic2Vzc2lvbl91dWlkIjoiZTEyZDgxNzkiLCJpZCI6MTk0NzA3NjQsImVtYWlsIjoic2FudGhvc2hrdW1hcjM3OTM3QGdtYWlsLmNvbSIsInVzZXJuYW1lIjoic2FudGhvc2g1NjcwMDAwIiwidXNlcl9zbHVnIjoic2FudGhvc2g1NjcwMDAwIiwiYXZhdGFyIjoiaHR0cHM6Ly9hc3NldHMubGVldGNvZGUuY29tL3VzZXJzL2RlZmF1bHRfYXZhdGFyLmpwZyIsInJlZnJlc2hlZF9hdCI6MTc4MTA5OTAyMywiaXAiOiIyNDA5OjQwZjQ6MjE1ODo2MzY3OmU1NTg6NGVmNjo2NDg6M2FhOCIsImlkZW50aXR5IjoiMTZmZWUzNzU1OWRiZDQyYjQ0ODIwNDQ0NmQwMjA4OWYiLCJkZXZpY2Vfd2l0aF9pcCI6WyI5NmRiYzYxNzkxMzJmYWM1M2Q3MjlkZGVhMDdlZGY2MyIsIjI0MDk6NDBmNDoyMTU4OjYzNjc6ZTU1ODo0ZWY2OjY0ODozYWE4Il0sIl9zZXNzaW9uX2V4cGlyeSI6MTIwOTYwMH0.976N16V63KnRPaXDwvzrC55Y36O2MPmmaFaqDAh435s",
+    "csrf_token": "mBe5V3G5V1AThFYOLlplCaSPzZ1Woqs9",
+    "cf_clearance": ".GqE3XlP8j.1RHazSV0sRpGFBWvCSjCfujil0keZCtw-1781099019-1.2.1.1-5JlTQyhXjAmNwgOdG27Vo151lqaUhjDUKnsZSluaaaRz.HpO2ZFgwo_znDIShbdfA_12TIdjZ4TvFg8a8Xl8dQf1p_VPNHXKx2dJkvQs9.h1GSHGQ0eZl7j2_qkQ9M27nz2ReXCn8MmvWphia2433eX8Gy.WYOowhCKSjRB.aFC3ylX_YI.ChvLufXkwk60TcKLAo0ZCKoIlVpojaSg8N.O7PlcC4JEGjQuO5JcvfL9I8vw7CCAq3w9r9rexEaf2L1umTT84SpkMauUaDa1updwmmrXLsGxEKaBmzPwGldamVrAdgF15GIIqIyTreFWZMqbDMaLRw0SIX4WoKZBmRJYVcyKNNejeavj_1V7giXd0fyWd7syHvfgmtQml7VafKgf1TtenO5d1vWhQpRCQNXuZQ_8UFV3r4OLF1DvpH5Q"
+  },
+  "email": {
+    "sender_email": "santhosh2005198@gmail.com",
+    "sender_password": "sqxh vhwn tepm hfjp",
+    "receiver_email": "santhoshkumar37937@gmail.com",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587
+  },
+  "automation": {
+    "problems_per_day": 5,
+    "difficulty_mix": ["Easy", "Medium", "Medium", "Hard", "Hard"],
+    "run_time": "08:00",
+    "topics": ["Array", "String", "LinkedList", "Tree", "DynamicProgramming"]
+  },
+  "dashboard_auth": {
+    "username": "admin",
+    "password": "password123"
+  }
+}
