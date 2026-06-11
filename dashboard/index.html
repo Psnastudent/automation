@@ -756,7 +756,7 @@
     <span class="nav-label">Schedule</span>
   </button>
   <button class="nav-btn" id="nav-history" onclick="showPage('history')">
-    <span class="nav-icon">📅</span>
+    <span class="nav-icon">📜</span>
     <span class="nav-label">History</span>
   </button>
 </nav>
@@ -1070,7 +1070,7 @@ async function loadHistory() {
 function renderHistory(history) {
   const c = document.getElementById('historyContainer');
   if (!history || history.length === 0) {
-    c.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>No history yet</p></div>`;
+    c.innerHTML = `<div class="empty-state"><div class="empty-icon">📜</div><p>No history yet</p></div>`;
     return;
   }
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
