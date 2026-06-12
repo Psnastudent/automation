@@ -35,6 +35,10 @@ def setup_logger(name: str) -> logging.Logger:
 
     logger.setLevel(logging.DEBUG)
 
+    # Ensure sys.stdout uses utf-8 to prevent emoji crash on Windows
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    
     # Console handler with colors
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)

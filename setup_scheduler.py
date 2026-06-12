@@ -22,6 +22,15 @@ def register_windows_task():
     # Build the action command
     command = f'"{PYTHON_EXE}" "{MAIN_SCRIPT}"'
     working_dir = str(SCRIPT_DIR)
+    
+    # Load run_time from config
+    try:
+        import json
+        with open(SCRIPT_DIR / "config.json") as f:
+            cfg = json.load(f)
+            run_time = cfg.get("automation", {}).get("run_time", "08:00")
+    except Exception:
+        run_time = "08:00"
 
     # XML Task definition
     task_xml = f"""<?xml version="1.0" encoding="UTF-16"?>
@@ -32,7 +41,7 @@ def register_windows_task():
   </RegistrationInfo>
   <Triggers>
     <CalendarTrigger>
-      <StartBoundary>2024-01-01T08:00:00</StartBoundary>
+      <StartBoundary>2024-01-01T{run_time}:00</StartBoundary>
       <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
       <Enabled>true</Enabled>
       <ScheduleByDay>
@@ -92,7 +101,7 @@ def register_windows_task():
         )
         if result.returncode == 0:
             print(f"✅ Task '{TASK_NAME}' registered successfully!")
-            print(f"   ➤ Will run daily at 08:00 AM")
+            print(f"   ➤ Will run daily at {run_time}")
             print(f"   ➤ Task Manager → Task Scheduler Library → {TASK_NAME}")
         else:
             print(f"❌ Task registration failed: {result.stderr}")
