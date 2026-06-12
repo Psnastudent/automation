@@ -8,7 +8,7 @@ import json
 import time
 import schedule
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from leetcode_client import LeetCodeClient
@@ -85,6 +85,30 @@ def run_daily_automation():
                 })
                 continue
 
+            # Skip non-code problems (SQL, Shell, etc.)
+            code_snippets = problem_detail.get("codeSnippets") or []
+            has_python = any(s.get("langSlug") == "python3" for s in code_snippets)
+            has_cpp = any(s.get("langSlug") == "cpp" for s in code_snippets)
+            has_java = any(s.get("langSlug") == "java" for s in code_snippets)
+            if not (has_python or has_cpp or has_java):
+                logger.warning(f"  ⚠️ {problem['title']} is a non-code problem (SQL/Shell). Skipping.")
+                results.append({
+                    "title": problem["title"],
+                    "status": "SKIPPED",
+                    "reason": "Non-code problem (SQL/Shell)"
+                })
+                continue
+
+            # Skip premium/locked problems with no content
+            if problem_detail.get("content") is None:
+                logger.warning(f"  ⚠️ {problem['title']} appears to be a premium/locked problem. Skipping.")
+                results.append({
+                    "title": problem["title"],
+                    "status": "SKIPPED",
+                    "reason": "Premium/locked problem"
+                })
+                continue
+
             # Generate solution using AI solver
             logger.info("  🤖 Generating solution...")
             accepted = False
@@ -129,7 +153,7 @@ def run_daily_automation():
                     last_status = status
                     logger.warning(f"  ❌ Submission result: {status}")
                     logger.info("  🔄 Trying alternative solution...")
-                    time.sleep(8) # Polite delay before retry
+                    time.sleep(15) # Longer delay before retry to avoid rate limits
 
             if not accepted:
                 if last_solution_code is None:
@@ -148,16 +172,18 @@ def run_daily_automation():
                         "code": last_solution_code
                     })
 
-            # Polite delay between submissions (avoid 429 rate limit)
-            time.sleep(8)
+            # Polite delay between problems (avoid 429 rate limit)
+            time.sleep(15)
 
         # Step 5: Send email report
         logger.info(f"\n{'='*60}")
         logger.info("📧 Sending email report...")
         accepted = sum(1 for r in results if "ACCEPTED" in r.get("status", ""))
         logger.info(f"  Summary: {accepted}/{len(results)} problems accepted")
-        reporter.send_daily_report(results, date=datetime.now())
-        logger.info("  ✅ Email sent successfully!")
+        if reporter.send_daily_report(results, date=datetime.now()):
+            logger.info("  ✅ Email sent successfully!")
+        else:
+            logger.error("  ❌ Failed to send email report.")
 
     except Exception as e:
         logger.error(f"❌ Automation error: {e}", exc_info=True)
@@ -168,15 +194,35 @@ def run_daily_automation():
     logger.info(f"{'='*60}\n")
 
 
+def send_upcoming_notification_job():
+    """Job to send the upcoming notification."""
+    try:
+        reporter = EmailReporter(CONFIG["email"])
+        reporter.send_upcoming_notification(CONFIG["automation"]["run_time"])
+        logger.info("✅ Upcoming notification email sent successfully!")
+    except Exception as e:
+        logger.error(f"❌ Failed to send upcoming notification: {e}")
+
+
 def start_scheduler():
     """Schedule daily automation and keep it running."""
     run_time = CONFIG["automation"]["run_time"]
+    
+    # Calculate 1 minute before run_time
+    run_time_obj = datetime.strptime(run_time, "%H:%M")
+    notify_time_obj = run_time_obj - timedelta(minutes=1)
+    notify_time = notify_time_obj.strftime("%H:%M")
+
     logger.info(f"⏰ Scheduler started — will run daily at {run_time}")
+    logger.info(f"⏰ Upcoming notification will be sent at {notify_time}")
     logger.info(f"   Solving {CONFIG['automation']['problems_per_day']} problems per day")
     logger.info(f"   Email report → {CONFIG['email']['receiver_email']}")
 
     # Schedule daily run
     schedule.every().day.at(run_time).do(run_daily_automation)
+    
+    # Schedule upcoming notification
+    schedule.every().day.at(notify_time).do(send_upcoming_notification_job)
 
     # Also run immediately on first launch
     logger.info("🚀 Running initial session now...")

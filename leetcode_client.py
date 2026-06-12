@@ -114,6 +114,7 @@ class LeetCodeClient:
                 userStatus
                 link
                 question {
+                    questionFrontendId
                     acRate
                     difficulty
                     title
@@ -181,6 +182,7 @@ class LeetCodeClient:
             ) {
                 total: totalNum
                 questions: data {
+                    questionFrontendId
                     acRate
                     difficulty
                     title
@@ -204,7 +206,17 @@ class LeetCodeClient:
                     .get("problemsetQuestionList", {})
                     .get("questions", [])
             )
-            return [q for q in questions if q.get("status") != "ac"]
+            # Filter out already-solved and non-code problems (Database, Shell)
+            NON_CODE_TAGS = {"database", "shell", "concurrency"}
+            filtered = []
+            for q in questions:
+                if q.get("status") == "ac":
+                    continue
+                tags = {t.get("name", "").lower() for t in (q.get("topicTags") or [])}
+                if tags & NON_CODE_TAGS:
+                    continue
+                filtered.append(q)
+            return filtered
         except Exception as e:
             logger.warning(f"  Could not fetch {difficulty} problems: {e}")
             return []
@@ -243,7 +255,7 @@ class LeetCodeClient:
     # ─────────────────────────────────────────────────────────────────────────
 
     def submit_solution(self, slug: str, code: str, language: str) -> Optional[Dict]:
-        """Submit a solution and poll for the result."""
+        """Submit a solution and poll for the result, with retry on rate-limit."""
         submit_url = f"{LEETCODE_BASE}/problems/{slug}/submit/"
 
         # Refresh csrf from cookies
@@ -261,22 +273,40 @@ class LeetCodeClient:
             "typed_code":  code,
         }
 
-        try:
-            resp = self.session.post(submit_url, json=payload, timeout=20)
-            if resp.status_code != 200:
-                logger.warning(f"  Submission HTTP {resp.status_code}")
+        # Pre-submission delay to avoid rate limiting
+        time.sleep(random.uniform(3, 5))
+
+        # Retry with exponential backoff on 429/403
+        backoff_delays = [15, 30, 60]
+        for attempt in range(len(backoff_delays) + 1):
+            try:
+                resp = self.session.post(submit_url, json=payload, timeout=20)
+
+                if resp.status_code in (429, 403) and attempt < len(backoff_delays):
+                    wait = backoff_delays[attempt]
+                    logger.warning(f"  Submission HTTP {resp.status_code} — backing off {wait}s (attempt {attempt + 1})")
+                    time.sleep(wait)
+                    # Refresh CSRF token before retry
+                    csrf = self.session.cookies.get("csrftoken", self.csrf_token)
+                    self.session.headers["x-csrftoken"] = csrf
+                    continue
+
+                if resp.status_code != 200:
+                    logger.warning(f"  Submission HTTP {resp.status_code}")
+                    return None
+
+                submission_id = resp.json().get("submission_id")
+                if not submission_id:
+                    return None
+
+                logger.info(f"  Submission #{submission_id} — waiting for result...")
+                return self._poll_submission(submission_id)
+
+            except Exception as e:
+                logger.error(f"  Submission error: {e}")
                 return None
 
-            submission_id = resp.json().get("submission_id")
-            if not submission_id:
-                return None
-
-            logger.info(f"  Submission #{submission_id} — waiting for result...")
-            return self._poll_submission(submission_id)
-
-        except Exception as e:
-            logger.error(f"  Submission error: {e}")
-            return None
+        return None
 
     def _poll_submission(self, submission_id: int, max_wait: int = 30) -> Optional[Dict]:
         """Poll submission result until ready."""

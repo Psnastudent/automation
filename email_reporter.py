@@ -1,9 +1,11 @@
 """
 Email Reporter
 Sends beautiful HTML email reports with LeetCode daily results.
+Includes proper SMTP handshake, plaintext fallback, and retry logic.
 """
 
 import smtplib
+import time
 import json
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -22,20 +24,40 @@ class EmailReporter:
         self.smtp_host = config["smtp_host"]
         self.smtp_port = config["smtp_port"]
 
-    def send_daily_report(self, results: List[Dict], date: datetime):
+    def send_daily_report(self, results: List[Dict], date: datetime) -> bool:
         """Send a beautiful HTML email report for the day."""
-        subject = f"✅ LeetCode Daily Report — {date.strftime('%B %d, %Y')}"
+        accepted = sum(1 for r in results if "ACCEPTED" in r.get("status", ""))
+        total = len(results)
+        subject = f"LeetCode Daily Report - {date.strftime('%B %d, %Y')} ({accepted}/{total} Accepted)"
         html = self._build_html_report(results, date)
-        self._send_email(subject, html)
+        plaintext = self._build_plaintext_report(results, date)
+        return self._send_email(subject, html, plaintext)
 
-    def send_failure_email(self, error_msg: str):
-        """Send a failure notification email."""
-        subject = f"⚠️ LeetCode Automation Error — {datetime.now().strftime('%Y-%m-%d')}"
+    def send_upcoming_notification(self, run_time: str):
+        """Send a notification that automation will start soon."""
+        subject = f"LeetCode Automation Starting Soon"
         html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 30px;">
           <div style="max-width: 600px; margin: auto; background: #16213e; border-radius: 15px; padding: 30px;">
-            <h2 style="color: #e94560;">⚠️ Automation Failed</h2>
+            <h2 style="color: #00b8a9;">Automation Starting Soon</h2>
+            <p style="color: #aaa;">Your LeetCode daily automation is scheduled to start in 1 minute (at {run_time}).</p>
+            <p style="color: #aaa; font-size: 12px;">Get ready for today's problem-solving session!</p>
+          </div>
+        </body>
+        </html>
+        """
+        plaintext = f"Your LeetCode daily automation is scheduled to start in 1 minute (at {run_time})."
+        self._send_email(subject, html, plaintext)
+
+    def send_failure_email(self, error_msg: str):
+        """Send a failure notification email."""
+        subject = f"LeetCode Automation Error - {datetime.now().strftime('%Y-%m-%d')}"
+        html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 30px;">
+          <div style="max-width: 600px; margin: auto; background: #16213e; border-radius: 15px; padding: 30px;">
+            <h2 style="color: #e94560;">Automation Failed</h2>
             <p style="color: #aaa;">The LeetCode automation encountered an error:</p>
             <pre style="background: #0f3460; padding: 15px; border-radius: 8px; color: #ff6b6b; white-space: pre-wrap;">{error_msg}</pre>
             <p style="color: #aaa; font-size: 12px;">Please check the logs at <code>automation.log</code></p>
@@ -43,7 +65,44 @@ class EmailReporter:
         </body>
         </html>
         """
-        self._send_email(subject, html)
+        plaintext = f"LeetCode Automation Error:\n\n{error_msg}\n\nPlease check the logs."
+        self._send_email(subject, html, plaintext)
+
+    def test_email(self) -> bool:
+        """Send a quick test email to verify credentials work."""
+        subject = "LeetCode Automation - Email Test"
+        html = "<html><body><p>Email is working correctly!</p></body></html>"
+        plaintext = "Email is working correctly!"
+        return self._send_email(subject, html, plaintext)
+
+    def _build_plaintext_report(self, results: List[Dict], date: datetime) -> str:
+        """Build a plaintext version of the report for email clients that don't support HTML."""
+        accepted = [r for r in results if "ACCEPTED" in r.get("status", "")]
+        failed = [r for r in results if "ACCEPTED" not in r.get("status", "")]
+        total = len(results)
+        success_rate = int((len(accepted) / total) * 100) if total else 0
+
+        lines = [
+            f"LeetCode Daily Report - {date.strftime('%A, %B %d, %Y')}",
+            f"{'=' * 50}",
+            f"",
+            f"Summary: {len(accepted)}/{total} Accepted ({success_rate}%)",
+            f"",
+            f"--- Problems ---",
+        ]
+
+        for i, r in enumerate(results, 1):
+            status = r.get("status", "UNKNOWN")
+            title = r.get("title", "Unknown")
+            difficulty = r.get("difficulty", "?")
+            icon = "[OK]" if "ACCEPTED" in status else "[FAIL]"
+            line = f"  {icon} {i}. {title} ({difficulty}) - {status}"
+            if "ACCEPTED" in status and r.get("runtime"):
+                line += f" | Runtime: {r.get('runtime', 'N/A')} | Memory: {r.get('memory', 'N/A')}"
+            lines.append(line)
+
+        lines.append(f"\n--- Generated by LeetCode Automation ---")
+        return "\n".join(lines)
 
     def _build_html_report(self, results: List[Dict], date: datetime) -> str:
         """Build a beautiful HTML email report."""
@@ -63,7 +122,7 @@ class EmailReporter:
             status = r.get("status", "UNKNOWN")
             is_accepted = "ACCEPTED" in status
             status_color = "#00b8a9" if is_accepted else "#e94560"
-            status_icon = "✅" if is_accepted else "❌"
+            status_icon = "&#10004;" if is_accepted else "&#10008;"
             difficulty = r.get("difficulty", "Unknown")
             diff_color = difficulty_colors.get(difficulty, "#aaa")
 
@@ -73,7 +132,7 @@ class EmailReporter:
                 code_block = f"""
                 <div style="margin-top: 12px;">
                   <details>
-                    <summary style="color: #00b8a9; cursor: pointer; font-size: 13px;">📋 View Solution Code</summary>
+                    <summary style="color: #00b8a9; cursor: pointer; font-size: 13px;">View Solution Code</summary>
                     <pre style="background: #0a0a1a; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; color: #a8d8ea; margin-top: 8px;">{escaped_code}</pre>
                   </details>
                 </div>
@@ -84,13 +143,13 @@ class EmailReporter:
                 stats_block = f"""
                 <div style="display: flex; gap: 15px; margin-top: 10px;">
                   <span style="background: #0f3460; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #a8d8ea;">
-                    ⚡ {r.get('runtime', 'N/A')}
+                    Runtime: {r.get('runtime', 'N/A')}
                   </span>
                   <span style="background: #0f3460; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #a8d8ea;">
-                    💾 {r.get('memory', 'N/A')}
+                    Memory: {r.get('memory', 'N/A')}
                   </span>
                   <span style="background: #0f3460; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #a8d8ea;">
-                    🔤 {r.get('language', 'python3')}
+                    Lang: {r.get('language', 'python3')}
                   </span>
                 </div>
                 """
@@ -106,7 +165,7 @@ class EmailReporter:
                   </span>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-size: 24px;">{status_icon}</div>
+                  <div style="font-size: 24px; color: {status_color};">{status_icon}</div>
                   <div style="color: {status_color}; font-size: 13px; font-weight: bold;">{status}</div>
                 </div>
               </div>
@@ -127,7 +186,6 @@ class EmailReporter:
 
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); padding: 35px 30px; text-align: center; border-bottom: 2px solid #0f3460;">
-              <div style="font-size: 48px; margin-bottom: 10px;">🏆</div>
               <h1 style="margin: 0; color: #fff; font-size: 26px; font-weight: 700;">LeetCode Daily Report</h1>
               <p style="margin: 8px 0 0; color: #a8d8ea; font-size: 15px;">{date.strftime('%A, %B %d, %Y')}</p>
             </div>
@@ -162,7 +220,7 @@ class EmailReporter:
             <!-- Problems Section -->
             <div style="padding: 25px 30px;">
               <h2 style="color: #e8e8e8; font-size: 18px; margin: 0 0 20px; border-bottom: 1px solid #0f3460; padding-bottom: 10px;">
-                📝 Today's Problems
+                Today's Problems
               </h2>
               {problem_cards}
             </div>
@@ -170,9 +228,8 @@ class EmailReporter:
             <!-- Footer -->
             <div style="background: #0f3460; padding: 20px 30px; text-align: center; border-top: 2px solid #16213e;">
               <p style="margin: 0; color: #aaa; font-size: 12px;">
-                🤖 Generated by LeetCode Automation &nbsp;|&nbsp;
-                ⏰ {date.strftime('%H:%M:%S')} &nbsp;|&nbsp;
-                🐍 Python 3
+                Generated by LeetCode Automation |
+                {date.strftime('%H:%M:%S')}
               </p>
               <p style="margin: 8px 0 0; color: #666; font-size: 11px;">
                 Next run scheduled tomorrow at the configured time
@@ -185,23 +242,43 @@ class EmailReporter:
         """
         return html
 
-    def _send_email(self, subject: str, html_body: str):
-        """Send an email via SMTP."""
+    def _send_email(self, subject: str, html_body: str, plaintext_body: str = None) -> bool:
+        """Send an email via SMTP with proper handshake and retry logic."""
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = self.sender_email
         msg["To"] = self.receiver_email
 
+        # Add plaintext first (fallback), then HTML (preferred)
+        if plaintext_body:
+            msg.attach(MIMEText(plaintext_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
-        try:
-            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(self.sender_email, self.sender_password)
-                server.sendmail(self.sender_email, self.receiver_email, msg.as_string())
-            logger.info(f"  📧 Email sent to {self.receiver_email}")
-        except smtplib.SMTPAuthenticationError:
-            logger.error("  ❌ Email auth failed — check App Password in config.json")
-        except Exception as e:
-            logger.error(f"  ❌ Email send failed: {e}")
+        # Try up to 2 times with a delay between retries
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()  # RFC 3207: MUST send EHLO again after STARTTLS
+                    server.login(self.sender_email, self.sender_password)
+                    server.sendmail(self.sender_email, self.receiver_email, msg.as_string())
+                logger.info(f"  📧 Email sent successfully to {self.receiver_email}")
+                return True
+            except smtplib.SMTPAuthenticationError as e:
+                logger.error(f"  ❌ Email auth failed (attempt {attempt}/{max_attempts}) — check App Password in config.json. Error: {e}")
+                if attempt < max_attempts:
+                    time.sleep(5)
+            except smtplib.SMTPRecipientsRefused as e:
+                logger.error(f"  ❌ Recipient refused: {e}")
+                return False  # No point retrying
+            except smtplib.SMTPDataError as e:
+                logger.error(f"  ❌ SMTP data error (attempt {attempt}/{max_attempts}): {e}")
+                if attempt < max_attempts:
+                    time.sleep(5)
+            except Exception as e:
+                logger.error(f"  ❌ Email send failed (attempt {attempt}/{max_attempts}): {type(e).__name__}: {e}")
+                if attempt < max_attempts:
+                    time.sleep(5)
+        return False
